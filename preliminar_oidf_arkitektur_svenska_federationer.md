@@ -2,8 +2,8 @@
 
 **Arbetsdokument**  
 **Internetstiftelsen**  
-**Version 0.3**  
-**Datum: 2026-09-29**
+**Version 0.4**  
+**Datum: 2026-10-26**
 
 ## 1. Syfte och status
 
@@ -62,10 +62,12 @@ Ombudet agerar på uppdrag av den organisation det företräder. Medlemskapet i 
 - Organisationen är det centrala administrativa objektet och har entiteter i federationen genom sitt medlemskap.
 - En organisation kan ha separata medlemskap i flera federationer.
 - Medlemskap, roller och behörigheter avgränsas per federation.
-- Entitetens koppling till organisation och medlemskap fastställs utifrån federationens auktoritativa administrativa information. Det mottagande systemet beslutar om åtkomst.
+- Kopplingen mellan en entitet, organisationen och medlemskapet fastställs utifrån federationens auktoritativa administrativa information. Det mottagande systemet beslutar om åtkomst.
 - Det administrativa systemet hanterar roller, behörigheter, utförare och spårbarhet.
 - Svenska federationer fastställer den gemensamma profilen för organisatoriska Trust Marks.
 - Varje federation ansvarar för sina medlemsbeslut och den administrativa information som ligger till grund för utfärdandet av organisatoriska Trust Marks.
+- Varje federation ansvarar för sina Trust Mark Issuers och för att rätt Trust Mark Issuers är registrerade hos Svenska federationers Trust Anchor.
+- Inom en federation etableras tillit till Trust Mark Issuers mot federationens lokala Trust Anchor. Svenska federationers gemensamma Trust Anchor används när tillit behöver etableras mellan federationer.
 
 ## 4. Övergripande arkitektur
 
@@ -100,8 +102,8 @@ Svenska federationers Trust Anchor ansluter de ingående federationerna till en 
 
 | Part | Ansvar |
 |---|---|
-| Svenska federationer | Gemensam teknisk rot, gemensamma tekniska krav och begränsningar samt gemensam profil och godkända utfärdare för organisatoriska Trust Marks |
-| Respektive federation | Medlemsbeslut, ombudsgodkännanden, federationsspecifika regler och auktoritativ administrativ information för utfärdande av organisatoriska Trust Marks |
+| Svenska federationer | Gemensam teknisk rot, gemensamma tekniska krav och begränsningar, gemensam profil för organisatoriska Trust Marks samt publicering av uppgifter om federationernas registrerade Trust Mark Issuers för tillit mellan federationer |
+| Respektive federation | Medlemsbeslut, ombudsgodkännanden, federationsspecifika regler, auktoritativ administrativ information samt ansvar för egna Trust Mark Issuers och korrekt, aktuell registrering av dessa hos Svenska federationers Trust Anchor |
 | Trust Mark Issuer | Utfärdar och återkallar organisatoriska Trust Marks enligt den gemensamma profilen och utifrån federationens auktoritativa administrativa information |
 | Organisation | Har medlemskapet och entiteter i federationen. Fullgör sina åtaganden enligt federationens regler och tillämpliga avtal |
 | Huvudkontakt | Tilldelar rollen teknisk kontakt |
@@ -113,7 +115,7 @@ Svenska federationers Trust Anchor ansluter de ingående federationerna till en 
 
 ## 5. Administrativ arkitektur
 
-Den administrativa arkitekturen utgår från organisationen och dess entiteter. Medlemskapet anger i vilken federation entiteterna ingår.
+Den administrativa arkitekturen utgår från organisationen och dess entiteter. Medlemskapet anger i vilken federation dessa entiteter ingår.
 
 ```mermaid
 flowchart TD
@@ -208,11 +210,47 @@ Ansvarsfördelningen fastställs av federationens regler och tillämpliga avtal.
 
 ### 6.2 Organisatoriskt Trust Mark
 
-Ett organisatoriskt Trust Mark intygar vilken organisation entiteten representerar. Det innehåller organisationsinformation, exempelvis organisationens identifierare och namn.
+Ett organisatoriskt Trust Mark intygar vilken organisation entiteten representerar. Det innehåller organisationsinformation, exempelvis organisationens identifierare och namn. Den gemensamma profilen kan även definiera ett federationsspecifikt organisatoriskt scope för att avgränsa identiteter till den organisation som entiteten representerar. Innebörden och användningen av ett sådant scope behöver fastställas i profilen.
 
-Samtliga ingående federationer använder samma `trust_mark_type` för organisatoriska Trust Marks. Innehållet och kraven på utfärdande och verifiering fastställs i en gemensam profil.
+Samtliga ingående federationer använder samma `trust_mark_type` för organisatoriska Trust Marks. Innehållet samt kraven på enrolment, utfärdande och verifiering fastställs i en gemensam profil.
 
-Varje federation har en egen Trust Mark Issuer som utfärdar organisatoriska Trust Marks utifrån federationens auktoritativa administrativa information. Den lokala Trust Anchor anger endast denna utfärdare, medan Svenska federationers Trust Anchor anger samtliga ingående federationers utfärdare.
+#### Ansvar för Trust Mark Issuers
+
+Varje lokal federation ansvarar för de Trust Mark Issuers som används för dess entiteter. Federationen väljer och förvaltar sina Trust Mark Issuers och ansvarar för att rätt Trust Mark Issuers är registrerade hos Svenska federationers Trust Anchor. Registreringen ska hållas aktuell när Trust Mark Issuers tillkommer, byts ut eller inte längre används.
+
+Den lokala Trust Anchor anger vilka Trust Mark Issuers som accepteras inom federationen för aktuellt värde på `trust_mark_type`. Svenska federationers Trust Anchor publicerar motsvarande uppgifter utifrån federationernas registreringar, så att tillit till Trust Mark Issuers kan etableras mellan federationer.
+
+Eventuell gemensam drift eller användning av en gemensam Trust Mark Issuer förändrar inte respektive federations ansvar för valet av Trust Mark Issuer, underlaget för utfärdande och registreringen hos Svenska federationers Trust Anchor. Former för drift och samverkan återstår att utreda.
+
+#### Föredragen lösning
+
+Den föredragna lösningen är att entiteten publicerar sitt organisatoriska Trust Mark i `trust_marks` i sin Entity Configuration. Entiteten hämtar sitt Trust Mark från relevant Trust Mark Issuer enligt förutsättningarna i avsnitt 7 och ansvarar för att hålla det aktuellt.
+
+Mottagaren får då ett organisatoriskt Trust Mark tillsammans med övrig information i Entity Configuration och identifierar Trust Mark Issuer genom `iss` i detta Trust Mark. Mottagaren behöver därmed inte söka efter en Trust Mark Issuer eller göra en separat förfrågan för att hämta detta Trust Mark.
+
+Mottagaren etablerar tillit till Trust Mark Issuer mot den lokala Trust Anchor vid validering inom den egna federationen. När tillit behöver etableras mellan federationer används Svenska federationers gemensamma Trust Anchor. Mottagaren kontrollerar att Trust Mark Issuer accepteras för aktuellt värde på `trust_mark_type` av den Trust Anchor som används och validerar mottaget Trust Mark. Att ett Trust Mark ingår i Entity Configuration ersätter inte denna validering.
+
+#### Separat hämtning och TMI-discovery
+
+Arkitekturen ska även kunna hantera att ett organisatoriskt Trust Mark inte ingår i Entity Configuration för aktuell entitet. Mottagaren, eller en Federation Resolver som mottagaren använder, behöver då kunna identifiera relevant Trust Mark Issuer och separat hämta ett organisatoriskt Trust Mark för denna entitet. Samma krav på tillit till Trust Mark Issuer och validering av ett Trust Mark gäller som vid publicering i Entity Configuration.
+
+OpenID Federation 1.1 tillåter att en Trust Anchor anger flera Trust Mark Issuers för samma värde på `trust_mark_type` och definierar hur ett Trust Mark hämtas från en känd Trust Mark Issuer. Specifikationen definierar däremot ingen direkt mappning från kombinationen Entity Identifier och `trust_mark_type` till relevant Trust Mark Issuer.
+
+Följande alternativ ska utredas som stöd för separat hämtning. Alternativen redovisas för att kunna jämföras och, där det är motiverat, uteslutas.
+
+1. **Förfrågan till accepterade Trust Mark Issuers.** Mottagaren hämtar de Trust Mark Issuers som accepteras för aktuellt värde på `trust_mark_type` av den Trust Anchor som används för valideringen. Inom den egna federationen används den lokala Trust Anchor. Vid tillit mellan federationer används Svenska federationers Trust Anchor. Mottagaren frågar de accepterade Trust Mark Issuers efter ett Trust Mark för aktuell entitet. Om flera Trust Mark Issuers accepteras kan flera förfrågningar behövas.
+
+2. **Discovery via federationens tillitsstruktur.** Vid tillit mellan federationer tar discoveryfunktionen entitetens Entity Identifier, `trust_mark_type` och Svenska federationers Trust Anchor som explicita parametrar. Från entiteten traverseras möjliga vägar genom federationens tillitsstruktur till denna Trust Anchor. Kandidater till Trust Mark Issuers hämtas från uppgifter som publiceras av lokala Trust Anchors längs vägarna. Svenska federationers Trust Anchor används som referenspunkt och för att kontrollera vilka kandidater som accepteras, men inte som källa till lokala kandidater. Tillit till kvarvarande kandidater etableras mot Svenska federationers Trust Anchor. Kandidaterna prövas därefter tills ett giltigt Trust Mark för entiteten hittas.
+
+3. **Gemensam Trust Mark Issuer för de ingående federationerna.** Federationerna använder en gemensam Trust Mark Issuer och etablerar enrolment hos denna Trust Mark Issuer. Mottagaren kan då vända sig till en känd Trust Mark Issuer. Varje federation ansvarar fortsatt för valet av Trust Mark Issuer, registreringen hos Svenska federationers Trust Anchor, medlemsbeslut och den auktoritativa administrativa information som ligger till grund för enrolment.
+
+4. **Gemensam Trust Mark Issuer med återutfärdande.** Lokala Trust Mark Issuers utfärdar organisatoriska Trust Marks inom respektive federation. En gemensam Trust Mark Issuer verifierar dessa och utfärdar nya organisatoriska Trust Marks med sitt eget Entity Identifier som `iss`. Modellen behöver ange hur giltighet och återkallelse ska hanteras för ett återutfärdat Trust Mark i förhållande till det Trust Mark som ligger till grund för återutfärdandet.
+
+5. **Gemensam proxy eller router för Trust Mark Issuers.** En gemensam tjänst identifierar relevant lokal Trust Mark Issuer och vidarebefordrar begäran eller hänvisar mottagaren dit. Organisatoriska Trust Marks utfärdas fortsatt av lokal Trust Mark Issuer. Det behöver utredas hur vidarebefordran eller hänvisning kan realiseras interoperabelt inom OpenID Federation 1.1.
+
+6. **Gemensam TMI-discoverytjänst.** En gemensam tjänst tillhandahåller en explicit mappning mellan Entity Identifier, `trust_mark_type` och relevant Trust Mark Issuer. Mappningen kan upprättas och hållas aktuell genom central indexering av information från federationerna eller deras Trust Mark Issuers, genom registrering i samband med enrolment eller genom en kombination av dessa. Uppgifterna tillhandahålls under respektive federations ansvar. Tjänstens gränssnitt och användning behöver definieras genom profilering eller kompletterande specifikation.
+
+Alternativen kan kombineras. Utvärderingen ska även beakta entiteter som inte är individuellt registrerade i förväg, enligt modellerna i avsnitt 7.2 och 7.3. Det fortsatta arbetet ska fastställa vilken modell för separat hämtning som ska stödjas och vilka krav den medför på Trust Anchors, Trust Mark Issuers, Federation Resolvers och mottagande entiteter.
 
 ### 6.3 Federation Policy och begränsningar (TBD)
 
@@ -228,21 +266,23 @@ Följande behöver fastställas:
 
 ### 6.4 Federation Resolver
 
-En Federation Resolver ska kunna validera en entitet mot den egna federationens lokala Trust Anchor och mot Svenska federationers gemensamma Trust Anchor. Om flera accepterade Trust Anchors anges ska resolvern returnera den kortaste giltiga Trust Chain.
+En Federation Resolver ska kunna validera en entitet mot den egna federationens lokala Trust Anchor och mot Svenska federationers gemensamma Trust Anchor. Om flera accepterade Trust Anchors anges ska den returnera den kortaste giltiga Trust Chain.
 
-Vid validering av organisatoriska Trust Marks etableras tillit till utfärdaren mot Svenska federationers gemensamma Trust Anchor.
+Vid validering av organisatoriska Trust Marks inom den egna federationen etableras tillit till Trust Mark Issuer mot den lokala Trust Anchor. Svenska federationers gemensamma Trust Anchor används när tillit behöver etableras mellan federationer. Lokal validering kräver därmed inte att den gemensamma Trust Anchor konsulteras. Ansvarsfördelningen och alternativen för separat hämtning och TMI-discovery beskrivs i avsnitt 6.2.
 
-Hur resolverfunktionerna fördelas och drivs är ett senare implementeringsbeslut.
+Hur Federation Resolvers fördelas och drivs är ett senare implementeringsbeslut.
 
 ## 7. Enrolment och utfärdande av organisatoriska Trust Marks
 
 Enrolment etablerar godkännandet och det underlag som federationens Trust Mark Issuer använder vid utfärdandet. Ett organisatoriskt Trust Mark skapas och signeras när det hämtas.
 
+Med federationens Trust Mark Issuer avses här den Trust Mark Issuer som federationen har utsett för sina entiteter och ansvarar för enligt avsnitt 6.2. Denna Trust Mark Issuer kan tillhandahållas lokalt eller genom en gemensam tjänst.
+
 Varje Trust Mark utfärdas för en bestämd entitet och intygar vilken organisation den representerar. Utfärdandet förutsätter en aktiv enrolment och en fastställd koppling mellan entiteten, organisationen och dess medlemskap i den aktuella federationen.
 
 ### 7.1 Entiteter som registreras i federationens administrativa system
 
-När registreringen av en medlemsentitet i federationens administrativa system har godkänts sker enrolment för organisatoriska Trust Marks. Registreringen fastställer kopplingen mellan entitetens Entity Identifier, organisationen och medlemskapet enligt avsnitt 8.2.
+När registreringen av en entitet i federationens administrativa system har godkänts sker enrolment för organisatoriska Trust Marks. Registreringen fastställer kopplingen mellan entitetens Entity Identifier, organisationen och medlemskapet enligt avsnitt 8.2.
 
 Detta gäller även en Intermediate Entity som organisationen registrerar för att ansluta egna underordnade entiteter.
 
@@ -299,17 +339,19 @@ Federationen ska tillhandahålla ett administrativt API som ombud kan använda f
 
 Ombudet kan driftställa en central publiceringstjänst som svarar på anrop för samtliga entiteter inom ombudets namnrymd.
 
-För entiteten `https://ombud.example/federation/k7m4q9x2/rp/elevsystem` hämtas Entity Configuration från:
+För entiteten med Entity Identifier `https://ombud.example/federation/k7m4q9x2/rp/elevsystem` hämtas Entity Configuration från:
 
 ```text
 https://ombud.example/federation/k7m4q9x2/rp/elevsystem/.well-known/openid-federation
 ```
 
-Tjänsten använder den opaka identifieraren tillsammans med den återstående sökvägen för att slå upp entitetens uppgifter i ombudets register. Utifrån dessa uppgifter skapar och signerar tjänsten Entity Configuration med den aktuella entitetens federationsnyckel och returnerar den som svar.
+Tjänsten använder den opaka identifieraren tillsammans med den återstående sökvägen för att slå upp entitetens uppgifter i ombudets register. Utifrån dessa uppgifter skapar och signerar tjänsten Entity Configuration med en privat Federation Entity Key för entiteten och returnerar den som svar.
+
+Entitetens Entity Configuration anger ombudets Intermediate Entity i `authority_hints`. Med stöd av samma registeruppgifter utfärdar ombudets Intermediate Entity ett Subordinate Statement med entitetens fullständiga Entity Identifier som `sub`. Detta Subordinate Statement signeras med en privat Federation Entity Key för ombudets Intermediate Entity och ingår i entitetens Trust Chain till federationens Trust Anchor.
 
 #### Utfärdande av organisatoriskt Trust Mark
 
-När ett organisatoriskt Trust Mark begärs för en entitet används identifieraren i entitetens Entity Identifier för att slå upp registreringsunderlaget i medlemsregistret. Federationens Trust Mark Issuer kontrollerar att:
+När ett organisatoriskt Trust Mark begärs för en entitet används den opaka identifieraren i dess Entity Identifier för att slå upp registreringsunderlaget i medlemsregistret. Federationens Trust Mark Issuer kontrollerar att:
 
 1. identifieraren har en aktiv enrolment för organisatoriska Trust Marks i den aktuella federationen,
 2. entitetens Entity Identifier ligger inom den registrerade namnrymden för identifieraren,
@@ -333,7 +375,7 @@ I det fortsatta arbetet ska även behovet av ett särskilt Trust Mark för ombud
 
 Enrolment ska hållas aktuell utifrån de administrativa och tekniska förutsättningar som ligger till grund för den. Systemet ska kunna följa kopplingen till organisationen, medlemskapet och berörda entiteter.
 
-För entiteter under en Intermediate Entity omfattar detta även kopplingen till denna IE och tillitsvägen genom den. Vid anslutning genom ombud ingår dessutom ombudets godkännande, organisationens uppdrag och den registrerade namnrymden.
+För entiteter under en Intermediate Entity omfattar detta även kopplingen till denna Intermediate Entity och den Trust Chain som går via den. Vid anslutning genom ombud ingår dessutom ombudets godkännande, organisationens uppdrag och den registrerade namnrymden.
 
 När förutsättningarna upphör ska berörd enrolment avaktiveras. Federationens Trust Mark Issuer får därefter inte utfärda nya Trust Marks med stöd av denna enrolment. Redan utfärdade Trust Marks ska återkallas av Trust Mark Issuer eller upphöra att gälla enligt den gemensamma profilen.
 
@@ -382,7 +424,9 @@ Utförare, behörighet, tidpunkt och berörd version registreras för spårbarhe
 
 När en entitet i en federation behöver kommunicera med en entitet i en annan kan båda valideras mot Svenska federationers gemensamma Trust Anchor.
 
-Den gemensamma tillitsvägen gör det möjligt att verifiera metadata över federationsgränsen. Den gemensamma Trust Mark-profilen gör att mottagaren kan identifiera och verifiera organisatoriska Trust Marks från andra ingående federationer och använda uppgifterna om vilken organisation entiteten representerar. Det mottagande systemet fattar beslut om autentisering, behörighet och informationsåtkomst.
+Vid validering av ett organisatoriskt Trust Mark från en annan federation etableras tillit till Trust Mark Issuer mot Svenska federationers gemensamma Trust Anchor. Respektive federation ansvarar för att de Trust Mark Issuers som används för dess entiteter är korrekt registrerade där.
+
+En giltig Trust Chain till den gemensamma Trust Anchor gör det möjligt att verifiera metadata över federationsgränsen. Den gemensamma profilen för organisatoriska Trust Marks gör att mottagaren kan identifiera och verifiera organisatoriska Trust Marks från andra ingående federationer och använda uppgifterna om vilken organisation entiteten representerar. Publicering, separat hämtning och validering av organisatoriska Trust Marks beskrivs i avsnitt 6.2. Det mottagande systemet fattar beslut om autentisering, behörighet och informationsåtkomst.
 
 ### 8.5 Upphörande och återkallelse
 
@@ -409,7 +453,8 @@ Följande delar av arkitekturen är arbetsantaganden och behöver fastställas i
 
 ### 9.1 Frågor som återstår
 
-- Hur ska federationernas Trust Mark Issuers drivas och förvaltas?
+- Hur ska federationerna förvalta sina Trust Mark Issuers och hålla registreringen hos Svenska federationers Trust Anchor aktuell enligt avsnitt 6.2?
+- Vilken modell för separat hämtning och TMI-discovery ska stödjas enligt avsnitt 6.2?
 - Hur ska enrolment och beroendena till dess underlag och utfärdade Trust Marks representeras och följas?
 - Vilka alternativ för medlemsregistrering genom ombud ska stödjas enligt avsnitt 7.3?
 - Behövs ett särskilt Trust Mark för ombudsrollen?
@@ -430,7 +475,8 @@ Nästa steg är att:
 
 - [OpenID Federation 1.1](https://openid.net/specs/openid-federation-1_1.html)
 - [OpenID Federation for OpenID Connect 1.1](https://openid.net/specs/openid-federation-connect-1_1.html)
-- [Swedish OpenID Federation Deployment and Interoperability Profile 1.0, draft](https://www.oidc.se/specifications/swedish-openid-federation-profile.html)
+- [Swedish OpenID Federation Deployment and Interoperability Profile 1.0](https://www.oidc.se/specifications/swedish-openid-federation-profile-1_0.html)
+- [Konceptuell modell för auktoritativ information](internetstiftelsen_auktoritetsmodell_v0_1.md)
 - [Mappning till OpenID Federation 1.1](mappning_till_openid_federation_1_1.md)
 - [Arkitekturella krav för Svenska federationers OIDF-arkitektur](arkitekturella_krav_svenska_federationers_oidf_arkitektur.md)
 - [Verksamhetsfall för Svenska federationers OIDF-arkitektur](verksamhetsfall_svenska_federationers_oidf_arkitektur.md)
